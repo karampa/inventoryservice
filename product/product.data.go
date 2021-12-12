@@ -8,6 +8,8 @@ import (
 	"os"
 	"sort"
 	"sync"
+
+	"github.com/karampa/inventoryservice/database"
 )
 
 var productMap = struct {
@@ -59,15 +61,38 @@ func removeProduct(id int) {
 	delete(productMap.m, id)
 }
 
-func getProductList() []Product {
-	productMap.RLock()
-	products := make([]Product, 0, len(productMap.m))
-
-	for _, value := range productMap.m {
-		products = append(products, value)
+func getProductList() ([]Product, error) {
+	results, err := database.DBConn.Query(`SELECT productID,
+	manufacturer,
+	sku,
+	upc,
+	pricePerUnit,
+	quantityOnHand,
+	productName
+	FROM products`)
+	if err != nil {
+		return nil, err
 	}
-	productMap.RUnlock()
-	return products
+	defer results.Close()
+	products := make([]Product, 0)
+
+	for results.Next() {
+		var product Product
+		results.Scan(&product.ProductID,
+			&product.Manufacturer,
+			&product.Sku,
+			&product.Upc,
+			&product.PricePerUnit,
+			&product.QuantityOnHand,
+			&product.ProductName)
+		products = append(products, product)
+	}
+	return products, nil
+	// for _, value := range productMap.m {
+	// 	products = append(products, value)
+	// }
+	// productMap.RUnlock()
+	// return products
 }
 
 func getProductids() []int {
