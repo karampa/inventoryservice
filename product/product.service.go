@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/karampa/inventoryservice/cors"
+	"golang.org/x/net/websocket"
 )
 
 const productsBasePath = "products"
@@ -16,7 +17,7 @@ const productsBasePath = "products"
 func SetupRoutes(apiBasePath string) {
 	productListHandler := http.HandlerFunc(productsHandler)
 	productItemHandler := http.HandlerFunc(productHandler)
-
+	http.Handle("/websocket", websocket.Handler(productSocket))
 	http.Handle(fmt.Sprintf("%s/%s", apiBasePath, productsBasePath), cors.MiddlewareHndler(productListHandler))
 	http.Handle(fmt.Sprintf("%s/%s/", apiBasePath, productsBasePath), cors.MiddlewareHndler(productItemHandler))
 }
@@ -52,7 +53,7 @@ func productsHandler(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusBadRequest)
 			return
 		}
-		_, err = addOrUpdateProduct(newProduct)
+		_, err = insertProduct(newProduct)
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
 			return
@@ -71,7 +72,11 @@ func productHandler(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusNotFound)
 		return
 	}
-	singleProduct := getProduct(productID)
+	singleProduct, err := getProduct(productID)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
 	if singleProduct == nil {
 		w.WriteHeader(http.StatusNotFound)
 		return
@@ -105,7 +110,7 @@ func productHandler(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusBadRequest)
 			return
 		}
-		_, err = addOrUpdateProduct(updatedProduct)
+		err = updateProduct(updatedProduct)
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
 			return
